@@ -23,6 +23,50 @@ Unity 提供了**Static Batching**和**Dynamic Batching**两种方式来优化�
 
   **Dynamic Batching**在降低Draw Call的同时会导致额外的CPU性能消耗，所以仅在合批操作的性能消耗小于不合批，**Dynamic Batching**才有意义。
 
+##### 1.1 Many Spheres
+
+1. 新建一个球体的Prefab用于测试
+
+   ![](./images/prefab.png)
+
+2. 新建**GPUInstancingTest**脚本，用于生成Sphere实例
+
+   ```c#
+   using UnityEngine;
+   public class GPUInstancingTest : MonoBehaviour {
+   
+   	public Transform prefab;
+   
+   	public int instances = 5000;
+   
+   	public float radius = 50f;
+   
+   	void Start () {
+   		for (int i = 0; i < instances; i++) {
+   			Transform t = Instantiate(prefab);
+   			t.localPosition = Random.insideUnitSphere * radius;
+   			t.SetParent(transform);
+   		}
+   	}
+   }
+   ```
+
+3. 新建**GameObject**并添加脚本**GPUInstancingTest**，生成半径50，实例数5000。
+
+   ![](./images/test-object.png)
+
+4. 将相机位置设置在（0，0，-100）以保证所有物体均在视野范围内。关掉光源的Shadow，设置相机的渲染路径为**Forward Rendering**。
+
+   ![](./images/sphere-of-spheres.png)
+
+   可以看到总共有5002次DrawCall(Batches),其中5000次是场景中的球体的绘制。尽管开启了动态合批，但由于Sphere的模型过大，导致无法动态合批。
+
+5. 将Sphere替换为Cube，观察合批结果
+
+   ![](./images/sphere-of-cubes.png)
+
+   可以看到这时只有8次DrawCall，4994个Cube被动态合批了。Graphics FPS也从35fps上升到了83fps。这里的FPS是指渲染帧而不是真实游戏帧率。
+
 > http://gad.qq.com/article/detail/28456
 >
 > https://catlikecoding.com/unity/tutorials/rendering/part-19/
