@@ -23,7 +23,7 @@ Unity 提供了**Static Batching**和**Dynamic Batching**两种方式来优化�
 
   **Dynamic Batching**在降低Draw Call的同时会导致额外的CPU性能消耗，所以仅在合批操作的性能消耗小于不合批，**Dynamic Batching**才有意义。
 
-##### 1.1 不可动态合批/可动态合批 测试
+##### 1.1 动态合批
 
 1. 新建一个球体的Prefab用于测试
 
@@ -66,6 +66,12 @@ Unity 提供了**Static Batching**和**Dynamic Batching**两种方式来优化�
    ![](./images/sphere-of-cubes.png)
 
    可以看到这时只有8次DrawCall(Batches)，4994个Cube被动态合批了。FPS也从35fps上升到了83fps。
+
+##### 1.2 GPU Instancing 测试
+
+​	GPU Instancing 并不是默认开启的。Shader需要特殊处理才能支持GPU Instancing。Unity的standard shader中是有开启GPU Instancing选项的，如果是自定义Shader，就需要自己去处理。
+
+​	
 
 > http://gad.qq.com/article/detail/28456
 >
