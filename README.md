@@ -29,29 +29,36 @@ Unity 提供了**Static Batching**和**Dynamic Batching**两种方式来优化�
 
    ![](./images/prefab.png)
 
-2. 新建**GPUInstancingTest**脚本，用于生成Sphere实例
+2. 新建**GPUInstancing**脚本，用于生成Sphere实例
 
    ```c#
+   using System.Collections;
+   using System.Collections.Generic;
    using UnityEngine;
-   public class GPUInstancingTest : MonoBehaviour {
    
-   	public Transform prefab;
+   public class GPUInstancing : MonoBehaviour 
+   {
    
-   	public int instances = 5000;
+       public Transform prefab;
    
-   	public float radius = 50f;
+       public int instances = 5000;
    
-   	void Start () {
-   		for (int i = 0; i < instances; i++) {
-   			Transform t = Instantiate(prefab);
-   			t.localPosition = Random.insideUnitSphere * radius;
-   			t.SetParent(transform);
-   		}
-   	}
+       public float radius = 50f;
+   
+       void Start()
+       {
+           for (int i = 0; i < instances; i++)
+           {
+               Transform t = Instantiate(prefab);
+               t.localPosition = Random.insideUnitSphere * radius;
+               t.SetParent(transform);
+           }
+       }
    }
+   
    ```
 
-3. 新建**GameObject**并添加脚本**GPUInstancingTest**，生成半径50，实例数5000。
+3. 新建**GameObject**并添加脚本**GPUInstancing**，生成半径50，实例数5000。
 
    ![](./images/test-object.png)
 
@@ -59,17 +66,17 @@ Unity 提供了**Static Batching**和**Dynamic Batching**两种方式来优化�
 
    ![](./images/sphere-of-spheres.png)
 
-   可以看到总共有5002次DrawCall(Batches),其中5000次是场景中的球体的绘制。尽管开启了动态合批，但由于Sphere的模型过大，导致无法动态合批。
+   可以看到总共有5002次DrawCall(Batches),其中5000次是场景中的球体的绘制。尽管开启了动态合批，但由于Sphere的模型过大，导致无法动态合批。而且FPS只有0.6
 
 5. 将Sphere替换为Cube，观察合批结果
 
    ![](./images/sphere-of-cubes.png)
 
-   可以看到这时只有8次DrawCall(Batches)，4994个Cube被动态合批了。FPS也从35fps上升到了83fps。
+   可以看到这时只有8次DrawCall(Batches)，4994个Cube被动态合批了。FPS也从0.6fps上升到了75fps。
 
 ##### 1.2 GPU Instancing 测试
 
-​	GPU Instancing 并不是默认开启的。Shader需要特殊处理才能支持GPU Instancing。Unity的standard shader中是有开启GPU Instancing选项的，如果是自定义Shader，就需要自己去处理。
+​	GPU Instancing 并不是默认开启的。Shader需要特殊处理才能支持GPU Instancing。Unity的standard shader中是有开启GPU Instancing选项的，如果是自定义Shader，就需要自己去处理。为了更方便测试我们使用自定义Shader。新建**
 
 ​	
 

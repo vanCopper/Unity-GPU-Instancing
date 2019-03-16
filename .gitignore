@@ -1884,3 +1884,10 @@ UnityGPUInstancing/ProjectSettings/UnityConnectSettings.asset
 UnityGPUInstancing/ProjectSettings/VFXManager.asset
 UnityGPUInstancing/Temp/ProcessJobs/1f068db059d5cf0261a3b566803bc6c6.bakert
 UnityGPUInstancing/Temp/UnityLockfile
+
+UnityGPUInstancing/.vs/*
+UnityGPUInstancing/Library/*
+UnityGPUInstancing/Temp/*
+UnityGPUInstancing/obj/*
+
+*.sln
