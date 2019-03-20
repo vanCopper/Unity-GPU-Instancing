@@ -76,7 +76,33 @@ Unity 提供了**Static Batching**和**Dynamic Batching**两种方式来优化�
 
 ##### 1.2 GPU Instancing 测试
 
-​	GPU Instancing 并不是默认开启的。Shader需要特殊处理才能支持GPU Instancing。Unity的standard shader中是有开启GPU Instancing选项的，如果是自定义Shader，就需要自己去处理。为了更方便测试我们使用自定义Shader。新建**
+​	GPU Instancing 并不是默认开启的。Shader需要特殊处理才能支持GPU Instancing。Unity的standard shader中是有开启GPU Instancing选项的，如果是自定义Shader，就需要自己去处理。我们先来用Sphere的渲染来测试下，5000个Sphere不开启GUP Instancing的情况：
+
+![](./images/sphere-no-instancing.png)
+
+因Sphere无法动态合批，5000个Sphere就5000次DrawCall。
+
+现在把材质中的**Enable GPU Instancing**选项开启：
+
+![](./images/enable-instancing.png)
+
+再次运行程序：
+
+![](./images/sphere-instancing.png)
+
+5000个Sphere被合批至10个DrawMesh中处理了。被Instancing的Draw Call都被标记为了**Draw Mesh(instanced)**了。
+
+##### 1.3 什么是GPU Instancing
+
+GPU Instancing是指由GPU和图形API支持的，用一个DrawCall同时绘制多个具有相同网格物体的技术。假如现在有一个包含大量模型的场景，而这些模型的网格数据都一样，不同的仅仅是世界空间下坐标不同。如果按照正常的渲染流程，DrawCall次数是和物件数量相同的，随着物件数量的上升CPU往GPU上传的数据就会越来越多，很快就会遇到性能的瓶颈。
+
+使用GPU Instancing技术时，数据的上传是一次性打包上传至GPU的，紧接着调用GPU和图形的API利用这些数据绘制多个物件。Unity中的具体实现步骤如下：
+
+* 将Per-Instance Data(世界矩阵，颜色等自定义变量)打包成Uniform Array，存储在Instance Constant Buffers中
+* 对于可以使用Instancing的Batch，调用各平台图形API的Instancing DrawCall，为每个Instance生成一个不同的SV_InstanceID
+* 在Shader中使用SV_InstanceID作为Uniform Array的索引来获取当前Instance的Per-Instance Data
+
+
 
 ​	
 
@@ -84,5 +110,5 @@ Unity 提供了**Static Batching**和**Dynamic Batching**两种方式来优化�
 >
 > https://catlikecoding.com/unity/tutorials/rendering/part-19/
 >
-> https://mp.weixin.qq.com/s?__biz=MzU5OTAwMjM4Ng==&mid=2247483762&idx=1&sn=b85b232621c50ddf6c57c0d263eea73d&chksm=febadd0fc9cd54198277b68dae8d7ed6c6aa323acaa74c39723a962643ac147977d99754ba66&mpshare=1&scene=1&srcid=0308uqzh07quQOZMoAJ6YEFu#rd
+> https://learnopengl.com/Advanced-OpenGL/Instancing
 
