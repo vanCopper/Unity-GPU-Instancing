@@ -90,7 +90,7 @@ Unity 提供了**Static Batching**和**Dynamic Batching**两种方式来优化�
 
 ![](./images/sphere-instancing.png)
 
-5000个Sphere被合批至10个DrawCall中处理了。被Instancing的Draw Call都被标记为了 *Draw Mesh(instanced)*了。
+5000个Sphere被合批至10个DrawCall中处理了。被Instancing的Draw Call都被标记为了Draw Mesh(instanced)了。
 
 #### 1.3 什么是GPU Instancing
 
