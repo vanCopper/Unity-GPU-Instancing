@@ -90,7 +90,7 @@ Unity 提供了**Static Batching**和**Dynamic Batching**两种方式来优化�
 
 ![](./images/sphere-instancing.png)
 
-5000个Sphere被合批至10个DrawMesh中处理了。被Instancing的Draw Call都被标记为了**Draw Mesh(instanced)**了。
+5000个Sphere被合批至10个DrawCall中处理了。被Instancing的Draw Call都被标记为了**Draw Mesh(instanced)**了。
 
 ##### 1.3 什么是GPU Instancing
 
@@ -102,9 +102,29 @@ GPU Instancing是指由GPU和图形API支持的，用一个DrawCall同时绘制�
 * 对于可以使用Instancing的Batch，调用各平台图形API的Instancing DrawCall，为每个Instance生成一个不同的SV_InstanceID
 * 在Shader中使用SV_InstanceID作为Uniform Array的索引来获取当前Instance的Per-Instance Data
 
+GPU Instancing技术并不是总能提高性能的，如果场景中有大量使用相同材质和相同网格的物体并性能问题是由DrawCall次数过多导致的，这时使用GPU Instancing可以得到不错的性能提升。在实际的游戏项目中植被和树木是最适合使用的。这里要注意的是GPU Instancing是通过减少DrawCall来降低CPU开销的，但这同事也会为GPU带来额外的开销。**适合的才是最好的，切勿沉迷性能优化无法自拔**。
+
+目前GPU Instancing支持的平台：
+
+* DirectX11 and DirectX12 on Windows
+* OpenGL Core 4.1+/ES3.0+ on Windows, macOS, Linux, iOS and Android
+* Metal on macOS and iOS
+* Vulkan on Windows, Linux and Android
+* PlayStation 4 and Xbox One
+* WebGL(requires WebGL 2.0 API)
+
+使用GPU Instancing 技术注意事项：
+
+* 使用Lightmap的物体无法使用Instancing
+* 受不同Light Probe / Reflection Probe影响的物体无法使用Instancing
+* 使用包含多个Pass的Shader物体，只有第一个Pass可以Instancing
+* 前向渲染时，受多个光源影响的物体只有Base Pass可以Instancing, Add Passes不行
+* Instancing 适用于MeshRenderer组件和Graphics.DrawMesh()
+* 需要物件使用相同的Material和Mesh
+* 需要把Shader改成Instanced的版本
+* 当所有条件均满足的情况下，Instancing是自动进行的，并且优先级高于 Static/Dynamic Batching
 
 
-​	
 
 > http://gad.qq.com/article/detail/28456
 >
