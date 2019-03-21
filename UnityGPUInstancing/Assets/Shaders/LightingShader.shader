@@ -20,11 +20,11 @@ Shader "Copper/LightingShader"
 			// make fog work
 			#pragma multi_compile_fog
 			#pragma multi_compile_instancing
-			//#pragma instancing_options forcemaxcount:512
+			//#pragma instancing_options forcemaxcount:456
 			
 			#include "UnityCG.cginc"
 
-			fixed4 _Color;
+			//fixed4 _Color;
 
 			struct appdata
 			{
@@ -43,6 +43,12 @@ Shader "Copper/LightingShader"
 			sampler2D _MainTex;
 			float4 _MainTex_ST;
 			
+			UNITY_INSTANCING_BUFFER_START(Props)
+				UNITY_DEFINE_INSTANCED_PROP(float4, _Color)
+				UNITY_DEFINE_INSTANCED_PROP(float4x4, _Te)
+				UNITY_DEFINE_INSTANCED_PROP(float4x4, _Te1)
+			UNITY_INSTANCING_BUFFER_END(Props)
+
 			v2f vert (appdata v)
 			{
 				v2f o;
@@ -57,9 +63,12 @@ Shader "Copper/LightingShader"
 			{
 				// sample the texture
 				fixed4 col = tex2D(_MainTex, i.uv);
+				fixed4x4 Te = UNITY_ACCESS_INSTANCED_PROP(Props, _Te);
+				fixed4x4 Te1 = UNITY_ACCESS_INSTANCED_PROP(Props, _Te1);
 				// apply fog
 				UNITY_APPLY_FOG(i.fogCoord, col);
-				return col*_Color;
+				//return col*_Color;
+				return col * UNITY_ACCESS_INSTANCED_PROP(Props, _Color);
 			}
 			ENDCG
 		}

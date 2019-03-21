@@ -295,9 +295,221 @@ max_count = 65536byte / 128byte = 512
 
 OpenGl平台中UBO的大小通常只有ConstantBuffer大小的四分之一。
 
-#### 2.4 
+**这里需要注意的是 UNITY_VERTEX_INPUT_INSTANCE_ID 使用的ConstantBuffer/UBO是单独的`UnityInstancing_PerDraw0`**
 
-> http://gad.qq.com/article/detail/28456
+#### 2.4 UNITY_DEFINE_INSTANCED_PROP
+
+修改一下Shader和脚本，为Shader添加一个颜色属性，在脚本中动态改变这个颜色值。
+
+`LightingShader.shader:`
+
+```c#
+Shader "Copper/LightingShader"
+{
+	Properties
+	{
+		_MainTex ("Texture", 2D) = "white" {}
+		_Color ("Main Color", Color) = (1,1,1,1)
+	}
+	SubShader
+	{
+		Tags { "RenderType"="Opaque" }
+		LOD 100
+
+		Pass
+		{
+			CGPROGRAM
+			#pragma vertex vert
+			#pragma fragment frag
+			// make fog work
+			#pragma multi_compile_fog
+			#pragma multi_compile_instancing
+			//#pragma instancing_options forcemaxcount:512
+			
+			#include "UnityCG.cginc"
+
+			fixed4 _Color;
+
+			struct appdata
+			{
+				UNITY_VERTEX_INPUT_INSTANCE_ID
+				float4 vertex : POSITION;
+				float2 uv : TEXCOORD0;
+			};
+
+			struct v2f
+			{
+				float2 uv : TEXCOORD0;
+				UNITY_FOG_COORDS(1)
+				float4 vertex : SV_POSITION;
+			};
+
+			sampler2D _MainTex;
+			float4 _MainTex_ST;
+
+			v2f vert (appdata v)
+			{
+				v2f o;
+				UNITY_SETUP_INSTANCE_ID(v)
+				o.vertex = UnityObjectToClipPos(v.vertex);
+				o.uv = TRANSFORM_TEX(v.uv, _MainTex);
+				UNITY_TRANSFER_FOG(o,o.vertex);
+				return o;
+			}
+			
+			fixed4 frag (v2f i) : SV_Target
+			{
+				// sample the texture
+				fixed4 col = tex2D(_MainTex, i.uv);
+				// apply fog
+				UNITY_APPLY_FOG(i.fogCoord, col);
+				return col*_Color;
+			}
+			ENDCG
+		}
+	}
+}
+
+```
+
+`GPUInstancing.cs:`
+
+```c#
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class GPUInstancing : MonoBehaviour 
+{
+
+    public Transform prefab;
+
+    public int instances = 5000;
+
+    public float radius = 50f;
+
+    void Start()
+    {
+        MaterialPropertyBlock properties = new MaterialPropertyBlock();
+        for (int i = 0; i < instances; i++)
+        {
+            Transform t = Instantiate(prefab);
+            t.localPosition = Random.insideUnitSphere * radius;
+            t.SetParent(transform);
+
+            properties.SetColor("_Color", new Color(Random.value, Random.value, Random.value));
+            t.GetComponent<MeshRenderer>().SetPropertyBlock(properties);
+        }
+    }
+}
+```
+
+运行程序，观察GPUInstancing是否还有作用：
+
+![](./images/shader_06.png)
+
+GPUInstancing无效了，很多时候我们是需要在Shader中定义一些属性供游戏运行时动态改变的。但在GPUInstancing阶段，如果没有给这些属性创建InstanceID的话，那么就无法成功合批。
+
+修改`LightingShader.shader:`
+
+```c#
+Shader "Copper/LightingShader"
+{
+	Properties
+	{
+		_MainTex ("Texture", 2D) = "white" {}
+		_Color ("Main Color", Color) = (1,1,1,1)
+	}
+	SubShader
+	{
+		Tags { "RenderType"="Opaque" }
+		LOD 100
+
+		Pass
+		{
+			CGPROGRAM
+			#pragma vertex vert
+			#pragma fragment frag
+			// make fog work
+			#pragma multi_compile_fog
+			#pragma multi_compile_instancing
+			//#pragma instancing_options forcemaxcount:512
+			
+			#include "UnityCG.cginc"
+
+			//fixed4 _Color;
+
+			struct appdata
+			{
+				UNITY_VERTEX_INPUT_INSTANCE_ID
+				float4 vertex : POSITION;
+				float2 uv : TEXCOORD0;
+			};
+
+			struct v2f
+			{
+				float2 uv : TEXCOORD0;
+				UNITY_FOG_COORDS(1)
+				float4 vertex : SV_POSITION;
+			};
+
+			sampler2D _MainTex;
+			float4 _MainTex_ST;
+			
+			UNITY_INSTANCING_BUFFER_START(Props)
+				UNITY_DEFINE_INSTANCED_PROP(float4, _Color)
+			UNITY_INSTANCING_BUFFER_END(Props)
+
+			v2f vert (appdata v)
+			{
+				v2f o;
+				UNITY_SETUP_INSTANCE_ID(v)
+				o.vertex = UnityObjectToClipPos(v.vertex);
+				o.uv = TRANSFORM_TEX(v.uv, _MainTex);
+				UNITY_TRANSFER_FOG(o,o.vertex);
+				return o;
+			}
+			
+			fixed4 frag (v2f i) : SV_Target
+			{
+				// sample the texture
+				fixed4 col = tex2D(_MainTex, i.uv);
+				// apply fog
+				UNITY_APPLY_FOG(i.fogCoord, col);
+				//return col*_Color;
+				return col * UNITY_ACCESS_INSTANCED_PROP(Props, _Color);
+			}
+			ENDCG
+		}
+	}
+}
+```
+
+![](./images/shader_07.png)
+
+结果成功合批。
+
+**UNITY_INSTANCING_CBUFFER_START(name) / UNITY_INSTANCING_CBUFFER_END**
+
+每个Instance独有的属性必须定义在一个遵循特殊命名规则的Constant Buffer中。使用这对宏来定义这些Constant Buffer。“name”参数可以是任意字符串。
+
+**UNITY_DEFINE_INSTANCED_PROP(float4, _Color)**
+
+定义一个具有特定类型和名字的每个Instance独有的Shader属性。这个宏实际会定义一个Uniform数组。
+
+**UNITY_ACCESS_INSTANCED_PROP(_Color)**
+
+访问每个Instance独有的属性。这个宏会使用Instance ID作为索引到Uniform数组中去取当前Instance对应的数据。
+
+**这里需要注意的是 UNITY_DEFINE_INSTANCED_PROP使用的ConstantBuffer/UBO是单独的`UnityInstancing_Props`。**
+
+所以合批上限是由**UnityInstancing_PerDraw0**和**UnityInstancing_Props**两个常量缓冲区同时决定的。
+
+
+
+参考：
+
+> https://docs.unity3d.com/Manual/GPUInstancing.html
 >
 > https://catlikecoding.com/unity/tutorials/rendering/part-19/
 >
