@@ -124,7 +124,134 @@ GPU Instancing技术并不是总能提高性能的，如果场景中有大量使
 * 需要把Shader改成Instanced的版本
 * 当所有条件均满足的情况下，Instancing是自动进行的，并且优先级高于 Static/Dynamic Batching
 
+#### 2.1 让自定义Shader支持Instancing
 
+首先我们新建一个简单的Shader：
+
+```c#
+Shader "Copper/LightingShader"
+{
+	Properties
+	{
+		_MainTex ("Texture", 2D) = "white" {}
+	}
+	SubShader
+	{
+		Tags { "RenderType"="Opaque" }
+		LOD 100
+
+		Pass
+		{
+			CGPROGRAM
+			#pragma vertex vert
+			#pragma fragment frag
+			// make fog work
+			#pragma multi_compile_fog
+						
+			#include "UnityCG.cginc"
+
+			struct appdata
+			{
+				float4 vertex : POSITION;
+				float2 uv : TEXCOORD0;
+			};
+
+			struct v2f
+			{
+				float2 uv : TEXCOORD0;
+				UNITY_FOG_COORDS(1)
+				float4 vertex : SV_POSITION;
+			};
+
+			sampler2D _MainTex;
+			float4 _MainTex_ST;
+			
+			v2f vert (appdata v)
+			{
+				v2f o;
+				o.vertex = UnityObjectToClipPos(v.vertex);
+				o.uv = TRANSFORM_TEX(v.uv, _MainTex);
+				UNITY_TRANSFER_FOG(o,o.vertex);
+				return o;
+			}
+			
+			fixed4 frag (v2f i) : SV_Target
+			{
+				// sample the texture
+				fixed4 col = tex2D(_MainTex, i.uv);
+				// apply fog
+				UNITY_APPLY_FOG(i.fogCoord, col);
+				return col;
+			}
+			ENDCG
+		}
+	}
+}
+```
+
+接下来我们需要添加Instancing开启的编译指令：
+
+```c#
+#pragma vertex vert
+#pragma fragment frag
+// make fog work
+#pragma multi_compile_fog
+// 开启 Instancing支持
+#pragma multi_compile_instancing
+```
+
+然后在Shader的Inspector中就会出现 **Enable GPU Instancing** 的选项：
+
+![](./images/shader-enable-instancing.png)
+
+勾选开启GPU Instancing后，运行程序后会得到一下结果：
+
+![](./images/shader_01.png)
+
+观察Stats发现渲染处理了5000个Sphere，最终合批为10次DrawCall。但我们却只在场景中观察到了10个Sphere。为什么5000个Sphere在渲染，而场景中只有10个Sphere？
+
+#### 2.2 UNITY_VERTEX_INPUT_INSTANCE_ID
+
+上面的例子中5000个Sphere渲染，而只在场景中看到10个Sphere是因为GPU在处理Instancing的时候如果没有为每个Instancing指定唯一的**Instance_id**，那么GPU就会默认使用第一个。所以同一批次的Sphere都会出现在同一位置。我们修改一下Shader再来测试：
+
+```C#
+struct appdata
+{
+    UNITY_VERTEX_INPUT_INSTANCE_ID
+    float4 vertex : POSITION;
+    float2 uv : TEXCOORD0;
+};
+
+v2f vert (appdata v)
+{
+    v2f o;
+    UNITY_SETUP_INSTANCE_ID(v)
+    o.vertex = UnityObjectToClipPos(v.vertex);
+    o.uv = TRANSFORM_TEX(v.uv, _MainTex);
+    UNITY_TRANSFER_FOG(o,o.vertex);
+    return o;
+}
+```
+
+![](./images/shader_02.png)
+
+修改Shader后渲染结果恢复正常。下面我们来理解一下`UNITY_VERTEX_INPUT_INSTANCE_ID`和`UNITY_SETUP_INSTANCE_ID`。
+
+Unity中Instancing相关的指令都定义在`Unity安装目录\Editor\Data\CGIncludes\UnityInstancing.cgine`文件中。
+
+```c#
+////////////////////////////////////////////////////////
+// basic instancing setups
+- UNITY_VERTEX_INPUT_INSTANCE_ID     //Declare instance ID field in vertex shader input / output struct.
+
+- UNITY_SETUP_INSTANCE_ID        //Should be used at the very beginning of the vertex shader / fragment shader, so that succeeding code can have access to the global unity_InstanceID.Also procedural function is called to setup instance data.
+```
+
+**UNITY_VERTEX_INPUT_INSTANCE_ID**：在Shader输入/输出结构体中 声明一个Instance ID元素。
+
+**UNITY_SETUP_INSTANCE_ID**：这个宏必须在Vertex Shader或Fragment Shader的一开始就调用，只有调用了这个宏以后，才可以在Shader中通过全局的InstanceID来访问到结构体数据。
+
+也就是开启GPU Instancing后，凡是Shader中对应的物体所具有的不同属性，例如：位置，颜色等shader中所需的数据，都需要先在输入/输出结构体中声明Instance ID，然后在访问时再使用**UNITY_SETUP_INSTANCE_ID**来分配。
 
 > http://gad.qq.com/article/detail/28456
 >

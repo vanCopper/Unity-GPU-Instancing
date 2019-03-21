@@ -1,4 +1,6 @@
-﻿Shader "Copper/LightingShader"
+﻿// Upgrade NOTE: replaced 'UNITY_INSTANCE_ID' with 'UNITY_VERTEX_INPUT_INSTANCE_ID'
+
+Shader "Copper/LightingShader"
 {
 	Properties
 	{
@@ -16,11 +18,14 @@
 			#pragma fragment frag
 			// make fog work
 			#pragma multi_compile_fog
+			#pragma multi_compile_instancing
+			//#pragma instancing_options forcemaxcount:512
 			
 			#include "UnityCG.cginc"
 
 			struct appdata
 			{
+				UNITY_VERTEX_INPUT_INSTANCE_ID
 				float4 vertex : POSITION;
 				float2 uv : TEXCOORD0;
 			};
@@ -38,6 +43,7 @@
 			v2f vert (appdata v)
 			{
 				v2f o;
+				UNITY_SETUP_INSTANCE_ID(v)
 				o.vertex = UnityObjectToClipPos(v.vertex);
 				o.uv = TRANSFORM_TEX(v.uv, _MainTex);
 				UNITY_TRANSFER_FOG(o,o.vertex);
