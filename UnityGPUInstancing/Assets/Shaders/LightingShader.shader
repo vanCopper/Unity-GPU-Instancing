@@ -5,6 +5,7 @@ Shader "Copper/LightingShader"
 	Properties
 	{
 		_MainTex ("Texture", 2D) = "white" {}
+		_Color ("Main Color", Color) = (1,1,1,1)
 	}
 	SubShader
 	{
@@ -22,6 +23,8 @@ Shader "Copper/LightingShader"
 			//#pragma instancing_options forcemaxcount:512
 			
 			#include "UnityCG.cginc"
+
+			fixed4 _Color;
 
 			struct appdata
 			{
@@ -56,7 +59,7 @@ Shader "Copper/LightingShader"
 				fixed4 col = tex2D(_MainTex, i.uv);
 				// apply fog
 				UNITY_APPLY_FOG(i.fogCoord, col);
-				return col;
+				return col*_Color;
 			}
 			ENDCG
 		}

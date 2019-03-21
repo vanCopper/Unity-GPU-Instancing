@@ -247,11 +247,55 @@ Unity中Instancing相关的指令都定义在`Unity安装目录\Editor\Data\CGIn
 - UNITY_SETUP_INSTANCE_ID        //Should be used at the very beginning of the vertex shader / fragment shader, so that succeeding code can have access to the global unity_InstanceID.Also procedural function is called to setup instance data.
 ```
 
-**UNITY_VERTEX_INPUT_INSTANCE_ID**：在Shader输入/输出结构体中 声明一个Instance ID元素。
+**UNITY_VERTEX_INPUT_INSTANCE_ID**：在Shader输入/输出结构体中 声明一个Instance ID。
 
 **UNITY_SETUP_INSTANCE_ID**：这个宏必须在Vertex Shader或Fragment Shader的一开始就调用，只有调用了这个宏以后，才可以在Shader中通过全局的InstanceID来访问到结构体数据。
 
-也就是开启GPU Instancing后，凡是Shader中对应的物体所具有的不同属性，例如：位置，颜色等shader中所需的数据，都需要先在输入/输出结构体中声明Instance ID，然后在访问时再使用**UNITY_SETUP_INSTANCE_ID**来分配。
+#### 2.3 GPU Instancing Batch Size
+
+![](./images/shader_03.png)
+
+可以看到单次DrawCall的批次大小是**511**。这里Instancing Batch Size是通过**UNITY_MAX_INSTANCE_COUNT** 来定义的，Unity默认的大小是500。根据运行平台不同，这个最大批次数是变化的。也可以通过下面的指令进行修改：
+
+```c#
+#pragma instancing_options forcemaxcount:512
+```
+
+把最大批次数改为512，再次运行程序：
+
+![](./images/shader_04.png)
+
+最大批次已经是512了，那么我们把最大批次修改为513会怎么样？
+
+```
+#pragma instancing_options forcemaxcount:513
+```
+
+运行后得到一个报错信息：
+
+![](./images/shader_05.png)
+
+`常量缓冲区UnityInstancing_PerDraw0的大小为 4104个16字节的条目，超过了最大4096个条目。`
+
+回到上面Instancing技术实现的说明：
+
+> 将Per-Instance Data(世界矩阵，颜色等自定义变量)打包成Uniform Array，存储在Instance Constant Buffers中
+
+Instance Data是存储在 **ConstantBuffers(D3D )/Uniform Buffer Object(OpenGL)**中的，那么也就是说一个批次能处理的Instance数量，取决于 **ConstantBuffers/UBO**的大小和**Instancing 属性**的多少。Windows下D3D的ConstantBuffer大小为**64KB**,那么基于上面的例子我们来算一下：
+
+```
+//上面的例子中在shader中将输入的结构体分配了Instance ID，之后Unity会在ConstantBuffers中存储两个矩阵：
+// object-to-world : 世界坐标系下的矩阵 world-to-object：用于法线计算的矩阵
+// 一个矩阵大小为 64byte
+pSize = 64byte x 2 = 128byte
+64KB = 64 x 1024 = 65536byte
+max_count = 65536byte / 128byte = 512
+所以批次最大Instance数为 512
+```
+
+OpenGl平台中UBO的大小通常只有ConstantBuffer大小的四分之一。
+
+#### 2.4 
 
 > http://gad.qq.com/article/detail/28456
 >
